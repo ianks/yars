@@ -7,14 +7,12 @@ module Rack
     # We boot the server here
     class Yars
       def self.run(app, options = {}, &block)
-        environment  = ENV['RACK_ENV'] || 'development'
-        default_host = environment == 'development' ? 'localhost' : '0.0.0.0'
-
         app = Rack::Builder.new(&block).to_app if block_given?
-
-        host = options.delete(:Host) || default_host
+        host = options.delete(:Host) || 'localhost'
         port = options.delete(:Port) || 8080
-        server = ::Yars::Server.new host, port, app, options
+        server = ::Yars::Server.new(
+          host: host, port: port, app: app, options: options
+        )
 
         yield server if block_given?
 
