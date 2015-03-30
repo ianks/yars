@@ -9,7 +9,7 @@ module Rack
       def self.run(app, options = {}, &block)
         app = Rack::Builder.new(&block).to_app if block_given?
         host = options.delete(:Host) || 'localhost'
-        port = options.delete(:Port) || 8080
+        port = options.delete(:Port) || 8000
         server = ::Yars::Server.new(
           host: host, port: port, app: app, options: options
         )

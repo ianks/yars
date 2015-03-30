@@ -10,7 +10,9 @@ task :server do
   require 'bundler/setup'
   require 'yars'
 
-  Yars::Server.start app: {}
+  app = -> { ['200', { 'Content-Type' => 'text/html' }, ['Yars.']] }
+
+  Rack::Handler::Yars.run app
 end
 
 task :benchmark do
