@@ -19,8 +19,6 @@ module Yars
       puts '-> Press Ctrl-c to stop'
 
       boot_tcp_server
-      spawn_frontend_workers
-      spawn_backend_workers
     end
 
     private
@@ -29,9 +27,15 @@ module Yars
       @backend = TCPServer.new @host, @port
 
       loop do
-        client = @backend.accept
-        client.puts 'Hello world!'
-        client.close
+        begin
+          client = @backend.accept
+          client.puts 'Hello world!'
+        rescue SystemExit, Interrupt
+          puts "\nSIGINT caught, exiting safely..."
+          exit!
+        ensure
+          client.close
+        end
       end
     end
 
