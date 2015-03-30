@@ -6,9 +6,11 @@ module Rack
   module Handler
     # We boot the server here
     class Yars
-      def self.run(app, options = {})
+      def self.run(app, options = {}, &block)
         environment  = ENV['RACK_ENV'] || 'development'
         default_host = environment == 'development' ? 'localhost' : '0.0.0.0'
+
+        app = Rack::Builder.new(&block).to_app if block_given?
 
         host = options.delete(:Host) || default_host
         port = options.delete(:Port) || 8080
