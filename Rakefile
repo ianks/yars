@@ -12,3 +12,7 @@ task :server do
 
   Yars::Server.start app: {}
 end
+
+task :benchmark do
+  system 'wrk -t8 -c400 -d10 http://localhost:8000'
+end
