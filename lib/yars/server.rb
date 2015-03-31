@@ -1,6 +1,7 @@
+require 'http/parser'
+require 'rack'
 require 'socket'
 require 'thread'
-require 'http/parser'
 
 module Yars
   # Server class which listens for requests
@@ -56,9 +57,7 @@ module Yars
       4.times do
         Thread.new do
           loop do
-            client = @clients.pop
-            client.puts @app.call.to_s
-            client.close
+            render_response
           end
         end
       end
@@ -79,6 +78,37 @@ module Yars
 
       parser.headers.to_s
     end
+
+    # Compound method names = code smell, extract these into object
+    # ====================================
+    def render_response
+      client = @clients.pop
+      env = read_request_buffer client
+      status, headers, body = @app.call env
+
+      client.print response_status(status)
+      client.print response_headers(headers)
+      client.print response_body(body)
+
+      client.close
+    end
+
+    def response_status(status)
+      "HTTP/1.1 #{status} #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n"
+    end
+
+    def response_headers(headers)
+      headers.map do |k, v|
+        "#{k}: #{v}"
+      end.join("\r\n") << "\r\n\r\n"
+    end
+
+    def response_body(bodies)
+      ''.tap do |ret|
+        bodies.each { |body| ret << body.to_s }
+      end
+    end
+    # ====================================
 
     def say(*args)
       @mutex.synchronize { puts args }
