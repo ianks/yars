@@ -1,5 +1,6 @@
 require 'socket'
 require 'thread'
+require 'http/parser'
 
 module Yars
   # Server class which listens for requests
@@ -33,6 +34,7 @@ module Yars
       @pools << Thread.new { spawn_frontend_workers }
       @pools << Thread.new { spawn_backend_workers }
 
+      @pools.each { |t| t.abort_on_exception = true }
       @pools.each(&:join)
     end
 
@@ -55,11 +57,27 @@ module Yars
         Thread.new do
           loop do
             client = @clients.pop
-            client.puts 'Hello world!'
+            client.puts @app.call.to_s
             client.close
           end
         end
       end
+    end
+
+    def read_request_buffer(client)
+      parser = Http::Parser.new
+
+      # Begin reading and parsing data in 4KB blocks
+      loop do
+        begin
+          data = client.readpartial 4096
+          parser << data
+
+          break if parser.headers
+        end
+      end
+
+      parser.headers.to_s
     end
 
     def say(*args)
