@@ -10,7 +10,9 @@ task :server do
   require 'bundler/setup'
   require 'yars'
 
-  app = -> { ['200', { 'Content-Type' => 'text/html' }, ['Yars.']] }
+  body = "<html><body><h1>#{Time.now}</h1></body></html>\r\n"
+  headers = { 'Content-Type' => 'text/html' }
+  app = ->(_env) { Rack::Response.new(body, 200, headers).finish }
 
   Rack::Handler::Yars.run app
 end
