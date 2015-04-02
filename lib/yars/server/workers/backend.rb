@@ -15,19 +15,19 @@ module Yars
 
             @workers << worker.tap { |w| w.abort_on_exception = true }
           end
+        end
 
-          def render_response
-            client = @server.clients.pop
-            env = @server.read_request_buffer client
-            status, headers, body = @server.app.call env
-            response = Response.new status, headers, body
+        def render_response
+          client = @server.clients.pop
+          env = @server.read_request_buffer client
+          status, headers, body = @server.app.call env
+          response = Response.new status, headers, body
 
-            client.print response.status
-            client.print response.headers
-            client.print response.body
+          client.print response.status
+          client.print response.headers
+          client.print response.body
 
-            client.close
-          end
+          client.close
         end
       end
     end

@@ -9,11 +9,12 @@ module Yars
         end
 
         def self.spawn!(server)
-          Thread.new { new(server).spawn }
+          @manager = Thread.new { new(server).spawn }
         end
 
         def kill
           @workers.each(&:kill)
+          @manager.kill
         end
       end
     end

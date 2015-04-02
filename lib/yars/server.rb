@@ -28,7 +28,14 @@ module Yars
       say "-> Booting yars on #{@host}:#{@port}"
       say '-> Press Ctrl-c to stop'
 
-      boot_tcp_server
+      begin
+        boot_tcp_server
+        # TODO: This logic likely does not belong here.
+      rescue SystemExit, Interrupt
+        say "\nSIGINT caught, exiting safely..."
+        @pools.each(&:kill)
+        exit!
+      end
     end
 
     def read_request_buffer(client)
