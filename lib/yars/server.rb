@@ -8,7 +8,7 @@ module Yars
   class Server
     def initialize(app:, port: 8000, host: 'localhost', options: {})
       @app = app
-      @clients = Queue.new
+      @clients = RequestQueue.new
       @host = host
       @mutex = Mutex.new
       @options = options
