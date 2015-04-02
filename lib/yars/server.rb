@@ -8,7 +8,7 @@ require 'thread'
 module Yars
   # Server class which listens for requests
   class Server
-    attr_accessor :backend, :clients, :pools
+    attr_accessor :app, :backend, :clients, :pools
 
     def initialize(app:, port: 8000, host: 'localhost', options: {})
       @app = app
@@ -31,32 +31,6 @@ module Yars
       boot_tcp_server
     end
 
-    def render_response
-      client = @clients.pop
-      env = read_request_buffer client
-      status, headers, body = @app.call env
-      response = Response.new status, headers, body
-
-      client.print response.status
-      client.print response.headers
-      client.print response.body
-
-      client.close
-    end
-
-    private
-
-    def boot_tcp_server
-      @backend = TCPServer.new @host, @port
-
-      # Spawn thread pools for workers
-      @pools << Workers::Frontend.spawn!(self)
-      @pools << Workers::Backend.spawn!(self)
-
-      @pools.each { |t| t.abort_on_exception = true }
-      @pools.each(&:join)
-    end
-
     def read_request_buffer(client)
       parser = Http::Parser.new
 
@@ -71,6 +45,19 @@ module Yars
       end
 
       parser.headers.to_s
+    end
+
+    private
+
+    def boot_tcp_server
+      @backend = TCPServer.new @host, @port
+
+      # Spawn thread pools for workers
+      @pools << Workers::Frontend.spawn!(self)
+      @pools << Workers::Backend.spawn!(self)
+
+      @pools.each { |t| t.abort_on_exception = true }
+      @pools.each(&:join)
     end
 
     def say(*args)
