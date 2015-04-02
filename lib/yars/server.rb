@@ -31,6 +31,19 @@ module Yars
       boot_tcp_server
     end
 
+    def render_response
+      client = @clients.pop
+      env = read_request_buffer client
+      status, headers, body = @app.call env
+      response = Response.new status, headers, body
+
+      client.print response.status
+      client.print response.headers
+      client.print response.body
+
+      client.close
+    end
+
     private
 
     def boot_tcp_server
@@ -38,20 +51,10 @@ module Yars
 
       # Spawn thread pools for workers
       @pools << Workers::Frontend.spawn!(self)
-      @pools << Thread.new { spawn_backend_workers }
+      @pools << Workers::Backend.spawn!(self)
 
       @pools.each { |t| t.abort_on_exception = true }
       @pools.each(&:join)
-    end
-
-    def spawn_backend_workers
-      4.times do
-        Thread.new do
-          loop do
-            render_response
-          end
-        end
-      end
     end
 
     def read_request_buffer(client)
@@ -68,19 +71,6 @@ module Yars
       end
 
       parser.headers.to_s
-    end
-
-    def render_response
-      client = @clients.pop
-      env = read_request_buffer client
-      status, headers, body = @app.call env
-      response = Response.new status, headers, body
-
-      client.print response.status
-      client.print response.headers
-      client.print response.body
-
-      client.close
     end
 
     def say(*args)

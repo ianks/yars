@@ -2,14 +2,10 @@ module Yars
   class Server
     module Workers
       # Workers which respond to initial HTTP requests.
-      class Frontend
+      class Frontend < Worker
         def initialize(server)
           @server = server
           @workers = []
-        end
-
-        def self.spawn!(server)
-          Thread.new { new(server).spawn }
         end
 
         def spawn
@@ -32,10 +28,6 @@ module Yars
               exit!
             end
           end
-        end
-
-        def kill
-          @workers.each(&:kill)
         end
       end
     end
