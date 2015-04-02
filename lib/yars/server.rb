@@ -30,28 +30,11 @@ module Yars
 
       begin
         boot_tcp_server
-        # TODO: This logic likely does not belong here.
       rescue SystemExit, Interrupt
         say "\nSIGINT caught, exiting safely..."
         @pools.each(&:kill)
         exit!
       end
-    end
-
-    def read_request_buffer(client)
-      parser = Http::Parser.new
-
-      # Begin reading and parsing data in 4KB blocks
-      loop do
-        begin
-          data = client.readpartial 4096
-          parser << data
-
-          break if parser.headers
-        end
-      end
-
-      parser.headers.to_s
     end
 
     private
