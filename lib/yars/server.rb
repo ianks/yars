@@ -32,6 +32,7 @@ module Yars
     def boot_tcp_server
       @backend = TCPServer.new @host, @port
 
+      # Spawn thread pools for workers
       @pools << Thread.new { spawn_frontend_workers }
       @pools << Thread.new { spawn_backend_workers }
 
@@ -79,36 +80,18 @@ module Yars
       parser.headers.to_s
     end
 
-    # Compound method names = code smell, extract these into object
-    # ====================================
     def render_response
       client = @clients.pop
       env = read_request_buffer client
       status, headers, body = @app.call env
+      response = Response.new status, headers, body
 
-      client.print response_status(status)
-      client.print response_headers(headers)
-      client.print response_body(body)
+      client.print response.status
+      client.print response.headers
+      client.print response.body
 
       client.close
     end
-
-    def response_status(status)
-      "HTTP/1.1 #{status} #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n"
-    end
-
-    def response_headers(headers)
-      headers.map do |k, v|
-        "#{k}: #{v}"
-      end.join("\r\n") << "\r\n\r\n"
-    end
-
-    def response_body(bodies)
-      ''.tap do |ret|
-        bodies.each { |body| ret << body.to_s }
-      end
-    end
-    # ====================================
 
     def say(*args)
       @mutex.synchronize { puts args }
