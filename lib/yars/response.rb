@@ -1,7 +1,7 @@
 module Yars
   # Abstract response object for yars
   class Response
-    def initialize(status, body, headers)
+    def initialize(status, headers, body)
       @status, @headers, @body = status, headers, body
     end
 

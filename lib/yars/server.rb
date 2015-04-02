@@ -1,3 +1,5 @@
+require 'yars/server/workers'
+
 require 'http/parser'
 require 'rack'
 require 'socket'
@@ -6,6 +8,8 @@ require 'thread'
 module Yars
   # Server class which listens for requests
   class Server
+    attr_accessor :backend, :clients, :pools
+
     def initialize(app:, port: 8000, host: 'localhost', options: {})
       @app = app
       @clients = RequestQueue.new
@@ -33,25 +37,11 @@ module Yars
       @backend = TCPServer.new @host, @port
 
       # Spawn thread pools for workers
-      @pools << Thread.new { spawn_frontend_workers }
+      @pools << Workers::Frontend.spawn!(self)
       @pools << Thread.new { spawn_backend_workers }
 
       @pools.each { |t| t.abort_on_exception = true }
       @pools.each(&:join)
-    end
-
-    def spawn_frontend_workers
-      loop do
-        begin
-          Thread.start(@backend.accept) do |client|
-            @clients << client
-          end
-        rescue SystemExit, Interrupt
-          say "\nSIGINT caught, exiting safely..."
-          @pools.each(&:kill)
-          exit!
-        end
-      end
     end
 
     def spawn_backend_workers
