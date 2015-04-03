@@ -39,7 +39,7 @@ module Yars
           ship response, to: client
 
           # Cache the response
-          @lookup_cache[etag] = response
+          @lookup_cache[etag] = response unless @lookup_cache[etag]
         end
 
         private
