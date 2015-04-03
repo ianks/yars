@@ -6,7 +6,10 @@ module Yars
         def initialize(server)
           @server = server
           @workers = []
+          post_initialize
         end
+
+        def post_initialize; end
 
         def self.spawn!(server)
           @manager = Thread.new { new(server).spawn }

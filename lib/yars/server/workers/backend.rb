@@ -1,3 +1,5 @@
+require 'digest'
+
 module Yars
   class Server
     module Workers
@@ -5,41 +7,53 @@ module Yars
       class Backend < Worker
         NUM_WORKERS = 4
 
+        def post_initialize
+          @lookup_cache = {}
+        end
+
         def spawn
           NUM_WORKERS.times do
             worker = Thread.new do
               loop do
-                render_response
+                serve @server.clients.pop
               end
             end
 
-            @workers << worker.tap { |w| w.abort_on_exception = true }
+            @workers << worker.tap do |w|
+              w.abort_on_exception = true
+            end
           end
         end
 
-        def render_response
-          client = @server.clients.pop
-          env = read_request_buffer client
-          status, headers, body = @server.app.call env
-          response = Response.new status, headers, body
+        def serve(client)
+          request = Request.new from: client
+          etag = request.etag
 
-          client.print response.status
-          client.print response.headers
-          client.print response.body
+          # If the response is cached, ship that
+          if @lookup_cache[etag]
+            response = @lookup_cache[etag]
+          else
+            response = response_from_application env: request.parsed.headers
+          end
 
-          client.close
+          ship response, to: client
+
+          # Cache the response
+          @lookup_cache[etag] = response
         end
 
-        def read_request_buffer(client)
-          return {} if client.eof?
+        private
 
-          parser = Http::Parser.new
+        def response_from_application(env:)
+          status, headers, body = @server.app.call env
+          Response.new status, headers, body
+        end
 
-          # Return parsed http when complete
-          parser.on_message_complete = proc { return parser.headers }
-
-          # Begin reading and parsing data in 4KB blocks
-          loop { parser << client.readpartial(1024) }
+        def ship(response, to:)
+          to.print response.status
+          to.print response.headers
+          to.print response.body
+          to.close
         end
       end
     end

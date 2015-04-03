@@ -1,6 +1,7 @@
 require 'yars/version'
 require 'yars/server'
 require 'yars/response'
+require 'yars/request'
 require 'yars/request_queue'
 require 'rack/handler/yars'
 
