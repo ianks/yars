@@ -8,7 +8,7 @@ module Yars
         NUM_WORKERS = 4
 
         def post_initialize
-          @lookup_cache = {}
+          @lookup_cache = ::Yars::AtomicCache.new
         end
 
         def spawn
