@@ -1,3 +1,5 @@
+require 'concurrent/atomics'
+
 module Yars
   # A thread safe queue built using monitors
   class AtomicQueue
