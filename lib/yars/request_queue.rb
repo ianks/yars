@@ -1,4 +1,5 @@
 module Yars
+  # A thread safe queue built using monitors
   class AtomicQueue
     attr_reader :size
 
@@ -32,8 +33,7 @@ module Yars
       @size == 0
     end
 
-    private
-
+    # Private node for the queue
     class Node
       attr_accessor :data, :succ, :pred
 
