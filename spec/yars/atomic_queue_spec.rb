@@ -4,17 +4,36 @@ describe Yars::AtomicQueue do
 
   describe '#push' do
     it 'can be pushed to' do
-      data.each do |num|
-        expect(q << num).to eq num
+      threads = []
+
+      8.times do
+        threads << Thread.new do
+          data.each { |num| expect(q << num).to eq num }
+        end
       end
+
+      threads.each(&:join)
     end
   end
 
   describe '#pop' do
-    before { data.each { |num| q << num } }
-
     it 'can be popped from' do
-      data.each { |num| expect(q.pop).to eq num }
+      threads = []
+      vals = []
+
+      data.each { |num| q << num }
+
+      data.length.times do
+        threads << Thread.new do
+          val = q.pop
+          vals << val
+          expect(data).to include val
+        end
+      end
+
+      threads.each(&:join)
+
+      expect(vals).to match_array data
     end
   end
 end

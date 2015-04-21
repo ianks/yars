@@ -8,8 +8,8 @@ module Yars
     def initialize
       sentinel = Node.new
 
-      @head = Concurrent::MutexAtomic.new sentinel
-      @tail = Concurrent::MutexAtomic.new sentinel
+      @head = Concurrent::Atomic.new sentinel
+      @tail = Concurrent::Atomic.new sentinel
     end
 
     def <<(data)
@@ -40,7 +40,7 @@ module Yars
 
         if first == @head.get
           if first == last
-            fail 'Empty' if succ.nil?
+            return nil if succ.nil?
 
             @tail.compare_and_set last, succ
           else
@@ -61,10 +61,10 @@ module Yars
 
       def initialize(data: nil)
         @data = data
-        @succ = Concurrent::MutexAtomic.new nil
+        @succ = Concurrent::Atomic.new nil
       end
     end
   end
 
-  class RequestQueue < Queue; end
+  class RequestQueue < AtomicQueue; end
 end
