@@ -1,4 +1,4 @@
-require 'concurrent/atomics'
+require 'concurrent'
 
 module Yars
   # A thread safe queue built using monitors
@@ -6,28 +6,48 @@ module Yars
     attr_reader :size
 
     def initialize
-      @head = Node.new pred: @tail
-      @tail = Node.new succ: @head
-      @size = 0
+      sentinel = Node.new
+
+      @head = Concurrent::MutexAtomic.new sentinel
+      @tail = Concurrent::MutexAtomic.new sentinel
     end
 
     def <<(data)
-      node = Node.new data: data, succ: @tail.succ, pred: @tail
+      node = Node.new data: data
 
-      @head.pred = node if empty?
-      @tail.succ.pred = node
-      @tail.succ = node
-      @size += 1
+      loop do
+        last = @tail.get
+        succ = last.succ.get
 
-      self
+        if last == @tail.get
+          if succ.nil?
+            if last.succ.compare_and_set succ, node
+              @tail.compare_and_set last, node
+              return node.data
+            end
+          else
+            @tail.compare_and_set last, succ
+          end
+        end
+      end
     end
 
     def pop
-      return nil if empty?
+      loop do
+        first = @head.get
+        last = @tail.get
+        succ = first.succ.get
 
-      @head.pred.data.tap do
-        @head.pred = @head.pred.pred
-        @size -= 1
+        if first == @head.get
+          if first == last
+            fail 'Empty' if succ.nil?
+
+            @tail.compare_and_set last, succ
+          else
+            val = succ.data
+            return val if @head.compare_and_set first, succ
+          end
+        end
       end
     end
 
@@ -37,10 +57,11 @@ module Yars
 
     # Private node for the queue
     class Node
-      attr_accessor :data, :succ, :pred
+      attr_accessor :data, :succ
 
-      def initialize(data: nil, succ: nil, pred: nil)
-        @data, @succ, @pred = data, succ, pred
+      def initialize(data: nil)
+        @data = data
+        @succ = Concurrent::MutexAtomic.new nil
       end
     end
   end
