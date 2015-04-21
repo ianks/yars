@@ -4,6 +4,7 @@ module Yars
   class AtomicCache < Hash
     def initialize
       @write_lock = Mutex.new
+      super
     end
 
     def []=(key, value)

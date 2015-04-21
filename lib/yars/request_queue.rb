@@ -8,6 +8,9 @@ module Yars
     def initialize
       sentinel = Node.new
 
+      @mutex = Mutex.new
+      @not_empty = ConditionVariable.new
+
       @head = Concurrent::Atomic.new sentinel
       @tail = Concurrent::Atomic.new sentinel
     end
@@ -17,12 +20,14 @@ module Yars
 
       loop do
         last = @tail.get
-        succ = last.succ.get
+        succ = last.succ.get rescue nil
 
         if last == @tail.get
           if succ.nil?
             if last.succ.compare_and_set succ, node
               @tail.compare_and_set last, node
+              @mutex.synchronize { @not_empty.broadcast }
+
               return node.data
             end
           else
@@ -36,23 +41,24 @@ module Yars
       loop do
         first = @head.get
         last = @tail.get
-        succ = first.succ.get
+        succ = @head.get.succ.get
+
+        # Await until there is work to be done
+        if succ.nil?
+          @mutex.synchronize do
+            @not_empty.wait @mutex
+            next
+          end
+        end
 
         if first == @head.get
           if first == last
-            return nil if succ.nil?
-
             @tail.compare_and_set last, succ
           else
-            val = succ.data
-            return val if @head.compare_and_set first, succ
+            return succ.data if @head.compare_and_set first, succ
           end
         end
       end
-    end
-
-    def empty?
-      @size == 0
     end
 
     # Private node for the queue
