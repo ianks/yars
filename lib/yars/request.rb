@@ -13,8 +13,8 @@ module Yars
 
     def initialize(from:, raw: '')
       @from = from
-      @raw = raw
       @parsed = read_buffer
+      @raw = parsed
     end
 
     def etag
@@ -24,21 +24,10 @@ module Yars
     private
 
     def read_buffer
-      return NullRequest.new if @from.eof?
+      @from.read_nonblock 1024
 
-      parser = Http::Parser.new
-
-      # Return parsed http when complete
-      parser.on_message_complete = proc do
-        return parser
-      end
-
-      # Begin reading and parsing data in 4KB blocks
-      loop do
-        buf = @from.readpartial 1024
-        @raw << buf
-        parser << buf
-      end
+      rescue IO::WaitReadable
+        IO.select [@from], nil, nil, 0.01
     end
   end
 end
