@@ -29,7 +29,7 @@ module Yars
       puts '-> Press Ctrl-c to stop'
       boot_tcp_server
     rescue SystemExit, Interrupt
-      say "\nSIGINT caught, exiting safely..."
+      puts "\nSIGINT caught, exiting safely..."
       @pools.each(&:kill)
       exit!
     end
