@@ -21,7 +21,7 @@ task :benchmark do
   server = fork { Rake::Task['server'].invoke }
   sleep 1
   puts "\n============ Results ============"
-  system 'wrk -t8 -c400 -d5 -H "Accept: text/json" http://localhost:8000'
+  system 'wrk -t8 -c4000 -d20 -H "Accept: text/json" http://localhost:8000'
   puts "=================================\n"
   Process.kill 'SIGINT', server
 end
