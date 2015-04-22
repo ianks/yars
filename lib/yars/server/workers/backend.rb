@@ -13,9 +13,16 @@ module Yars
 
         def spawn
           NUM_WORKERS.times do
-            worker = Thread.new do
+            worker = Thread.start do
               loop do
-                serve @server.clients.pop
+                begin
+                  client = @server.clients.pop
+                  serve client
+                rescue => e
+                  puts e
+                ensure
+                  client.close
+                end
               end
             end
 
