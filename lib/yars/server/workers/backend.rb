@@ -40,13 +40,13 @@ module Yars
           if @lookup_cache[etag]
             response = @lookup_cache[etag]
           else
-            response = response_from_application env: request.parsed.headers
+            response = response_from_application env: {}
           end
 
           ship response, to: client
 
           # Cache the response
-          @lookup_cache[etag] = response unless @lookup_cache[etag]
+          @lookup_cache[etag] = response
         end
 
         private
@@ -57,10 +57,9 @@ module Yars
         end
 
         def ship(response, to:)
-          to.print response.status
-          to.print response.headers
-          to.print response.body
-          to.close
+          to.puts response.status
+          to.puts response.headers
+          to.puts response.body
         end
       end
     end

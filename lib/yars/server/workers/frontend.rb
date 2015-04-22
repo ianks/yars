@@ -5,14 +5,17 @@ module Yars
       class Frontend < Worker
         def spawn
           loop do
-            # When we recieve a client, spawn a thread to handle it, to
-            # ensure the server is not blocked by slow clients.
-            worker = Thread.start @server.backend.accept do |client|
-              @server.clients << client
+            begin
+              worker = @server.backend.accept
+              @server.clients << worker
+            rescue => e
+              puts e
             end
+            # worker = Thread.start @server.backend.accept do |client|
+            #   @server.clients << client
+            # end
 
-            # Make sure we abort the thread when an exception is raised.
-            @workers << worker.tap { |w| w.abort_on_exception = true }
+            # @workers << worker.tap { |w| w.abort_on_exception = true }
           end
         end
       end

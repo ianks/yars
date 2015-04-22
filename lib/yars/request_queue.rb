@@ -72,5 +72,5 @@ module Yars
     end
   end
 
-  class RequestQueue < AtomicQueue; end
+  class RequestQueue < Queue; end
 end
