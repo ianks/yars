@@ -12,7 +12,8 @@ module Yars
         def post_initialize; end
 
         def self.spawn!(server)
-          @manager = Thread.new { new(server).spawn }
+          puts "#{self} spawned."
+          @manager = Thread.start { new(server).spawn }
         end
 
         def kill
