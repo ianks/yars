@@ -13,6 +13,7 @@ module Yars
 
     def [](key)
       acquire key
+
       bucket = bucket_location key
 
       return @table[bucket].find { |k, _v| k == key }[1]
@@ -21,11 +22,12 @@ module Yars
     end
 
     def []=(key, value)
+      acquire key
+
       begin
-        acquire key
         bucket = bucket_location key
 
-        unless @table[bucket].include? key
+        unless @table[bucket].include? [key, value]
           result = @table[bucket] << [key, value]
           @size += 1
         end
