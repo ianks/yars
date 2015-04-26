@@ -14,7 +14,7 @@ module Yars
     def [](key)
       acquire key
 
-      bucket = bucket_location key
+      bucket = index_of key, inside_of: @table
 
       return @table[bucket].find { |k, _v| k == key }[1]
     ensure
@@ -25,7 +25,7 @@ module Yars
       acquire key
 
       begin
-        bucket = bucket_location key
+        bucket = index_of key, inside_of: @table
 
         unless @table[bucket].include? [key, value]
           result = @table[bucket] << [key, value]
@@ -44,11 +44,28 @@ module Yars
     private
 
     def acquire(x)
-      @locks[lock_location(x)].lock
+      me = Thread.current
+
+      loop do
+        who, mark = @owner.get
+
+        loop do
+          who, mark = @owner.get
+        end while mark && who != me
+
+        old_locks = @locks
+        old_lock = old_locks[index_of x, inside_of: old_locks]
+        old_lock.lock
+        who, mark = @owner.get
+
+        return if (!mark || who == me) && @locks == old_locks
+
+        old_lock.unlock
+      end
     end
 
     def release(x)
-      @locks[lock_location(x)].unlock
+      @locks[index_of x, inside_of: @locks].unlock
     end
 
     def policy
@@ -68,7 +85,7 @@ module Yars
 
       old_table.each do |bucket|
         bucket.each do |item|
-          @table[bucket_location(item)] << item
+          @table[index_of item, inside_of: bucket] << item
         end
       end
 
@@ -78,12 +95,8 @@ module Yars
       @locks.each(&:unlock)
     end
 
-    def bucket_location(x)
-      (x.hash % @table.length).abs
-    end
-
-    def lock_location(x)
-      (x.hash % @locks.length).abs
+    def index_of(x, inside_of:)
+      (x.hash % inside_of.length).abs
     end
   end
 end
