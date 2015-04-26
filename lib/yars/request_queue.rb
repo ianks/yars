@@ -20,7 +20,11 @@ module Yars
 
       loop do
         last = @tail.get
-        succ = last.succ.get rescue nil
+        succ = begin
+                 last.succ.get
+               rescue
+                 nil
+               end
 
         if last == @tail.get
           if succ.nil?

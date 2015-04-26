@@ -1,5 +1,8 @@
 Metrics/MethodLength:
   Enabled: false
 
+Metrics/AbcSize:
+  Enabled: false
+
 Style/Next:
   Enabled: false
