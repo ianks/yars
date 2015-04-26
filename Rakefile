@@ -25,3 +25,7 @@ task :benchmark do
   puts "=================================\n"
   Process.kill 'SIGINT', server
 end
+
+task :pandoc do
+  system 'pandoc ANALYSIS.md -o YARS-MultiThreadedWebServer.pdf'
+end
