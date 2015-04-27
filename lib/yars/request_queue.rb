@@ -2,7 +2,7 @@ require 'concurrent'
 
 module Yars
   # A thread safe queue built using monitors
-  class AtomicQueue
+  class UnboundedSignalingQueue
     attr_reader :size
 
     def initialize
@@ -11,8 +11,8 @@ module Yars
       @mutex = Mutex.new
       @not_empty = ConditionVariable.new
 
-      @head = Concurrent::Atomic.new sentinel
-      @tail = Concurrent::Atomic.new sentinel
+      @head = Concurrent::AtomicReference.new sentinel
+      @tail = Concurrent::AtomicReference.new sentinel
     end
 
     def <<(data)
@@ -71,10 +71,10 @@ module Yars
 
       def initialize(data: nil)
         @data = data
-        @succ = Concurrent::Atomic.new nil
+        @succ = Concurrent::AtomicReference.new nil
       end
     end
   end
 
-  class RequestQueue < Queue; end
+  class RequestQueue < UnboundedSignalingQueue; end
 end

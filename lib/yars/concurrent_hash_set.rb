@@ -71,7 +71,7 @@ module Yars
     end
 
     def policy
-      (@size / @table.length) > 8
+      (@size / @table.length) > 4
     end
 
     def resize
