@@ -4,11 +4,12 @@ require 'http/parser'
 require 'rack'
 require 'socket'
 require 'thread'
+require 'logger'
 
 module Yars
   # Server class which listens for requests
   class Server
-    attr_accessor :app, :backend, :clients, :pools
+    attr_accessor :app, :backend, :clients, :pools, :logger
 
     def initialize(app:, port: 8000, host: 'localhost', options: {})
       @app = app
@@ -18,6 +19,8 @@ module Yars
       @options = options
       @pools = []
       @port = port
+
+      setup_logger
     end
 
     def self.start(app:, port: 8000, host: 'localhost', options: {})
@@ -45,6 +48,14 @@ module Yars
 
       @pools.each { |t| t.abort_on_exception = true }
       @pools.each(&:join)
+    end
+
+    def setup_logger
+      require 'fileutils'
+
+      FileUtils.mkdir_p 'log'
+      file = File.open 'log/yars.log', File::WRONLY | File::APPEND | File::CREAT
+      @logger = Logger.new file
     end
   end
 end

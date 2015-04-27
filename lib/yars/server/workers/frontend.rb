@@ -1,5 +1,3 @@
-require 'timeout'
-
 module Yars
   class Server
     module Workers
@@ -11,6 +9,8 @@ module Yars
           NUM_WORKERS.times { @workers << start_worker }
 
           @workers.each(&:join)
+        rescue => err
+          @server.logger.warn err.to_s
         end
 
         private

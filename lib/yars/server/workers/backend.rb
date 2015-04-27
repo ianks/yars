@@ -16,8 +16,8 @@ module Yars
                 begin
                   client = @server.clients.pop
                   serve client
-                rescue
-                  nil # Errno::EPIPE, etc.
+                rescue => err
+                  @server.logger.warn err.to_s
                 ensure
                   client.close
                 end
