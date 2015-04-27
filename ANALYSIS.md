@@ -109,4 +109,14 @@ any given item being in any single bucket reduces.
 
 # Discussion
 
+## Challenges
+
+## State of Concurrency in Ruby
+
+## Open Source Contribution to Concurrent-Ruby
+
+### Importance of Atomic Primitives in a Language
+
+## Structuring with Non-Blocking IO From the Start
+
 # Conclusion
