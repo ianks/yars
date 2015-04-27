@@ -4,23 +4,13 @@ TODO: Write a gem description
 
 ## Installation
 
-Add this line to your application's Gemfile:
-
-```ruby
-gem 'yars'
-```
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install yars
+1. Install Ruby 2.2.2
+2. `bundle install`
+3. `bundle exec rake benchmark[12]`
 
 ## Usage
 
-TODO: Write usage instructions here
+To run as a server, run `bundle exec rake server`
 
 ## Contributing
 
