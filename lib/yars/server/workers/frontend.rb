@@ -29,6 +29,8 @@ module Yars
           rescue IO::WaitReadable, Errno::EAGAIN
             IO.select [@server.backend]
             retry
+          rescue => err
+            @server.logger.warn err.to_s
         end
       end
     end

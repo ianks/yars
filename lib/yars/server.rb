@@ -37,8 +37,8 @@ module Yars
       boot_tcp_server
     rescue SystemExit, Interrupt
       puts "\nSIGINT caught, exiting safely..."
+      @logger.close
       @pools.each(&:kill)
-
       exit!
     end
 
