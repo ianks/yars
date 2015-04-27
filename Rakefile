@@ -15,7 +15,7 @@ end
 
 task :profile do
   %w(2 4 6 8 12 16 24 32 64).each do |i|
-    system "bundle exec rake benchmark[#{i}]"
+    system "bundle exec rake benckmark[#{i}]"
     sleep 5
   end
 end
@@ -27,6 +27,7 @@ end
 def benchmark(concurrency)
   server = fork { boot_server(concurrency) }
   sleep 3
+  puts '===='
   puts "Concurrency: #{concurrency}"
   system 'wrk -t8 -c4000 -d30 -s tasks/get.lua http://localhost:8192'
   puts "====\n"
@@ -38,17 +39,15 @@ def boot_server(concurrency)
   require 'bundler/setup'
   require 'yars'
 
+  body = "<html><body><h1>Hello world!</h1></body></html>\n"
   headers = { 'Content-Type' => 'text/html' }
-  app = proc do |_env|
-    f = ->(n) { n <= 1 ? 1 : f.call(n - 1) + f.call(n - 2) }
-    Rack::Response.new(f.call(24).to_s, 200, headers).finish
-  end
+  app = ->(_env) { Rack::Response.new(body, 200, headers).finish }
 
   Rack::Handler::Yars.run(
     app,
     concurrency: concurrency.to_i,
     Port: 8192,
-    caching: false,
+    caching: true,
     quiet: true
   )
 end
