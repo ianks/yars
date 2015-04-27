@@ -48,6 +48,6 @@ def boot_server(concurrency)
     concurrency: concurrency.to_i,
     Port: 8192,
     caching: true,
-    quiet: true
+    quiet: false
   )
 end
