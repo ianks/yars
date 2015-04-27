@@ -11,6 +11,10 @@ module Yars
 
     # Parse the env hash and coerce into HTTP header format
     def headers
+      # This header... caused me a day of debugging.
+      # Never forget, HTTP 1.1, Connection: close
+      @headers.merge! 'Connection' => 'close'
+
       @headers.map do |k, v|
         "#{k}: #{v}"
       end.join("\r\n") << "\r\n\r\n"

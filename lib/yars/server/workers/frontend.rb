@@ -1,22 +1,36 @@
+require 'timeout'
+
 module Yars
   class Server
     module Workers
       # Workers which respond to initial HTTP requests.
       class Frontend < Worker
-        def spawn
-          loop do
-            begin
-              worker = @server.backend.accept
-              @server.clients << worker
-            rescue => e
-              puts e
-            end
-            # worker = Thread.start @server.backend.accept do |client|
-            #   @server.clients << client
-            # end
+        NUM_WORKERS = 8
 
-            # @workers << worker.tap { |w| w.abort_on_exception = true }
+        def spawn
+          NUM_WORKERS.times { @workers << start_worker }
+
+          @workers.each(&:join)
+        end
+
+        private
+
+        def start_worker
+          Thread.new { enter_work_loop }.tap do |t|
+            t.abort_on_exception = true
           end
+        end
+
+        def enter_work_loop
+          loop { accept_clients }
+        end
+
+        def accept_clients
+          @server.clients << @server.backend.accept_nonblock
+
+          rescue IO::WaitReadable, Errno::EAGAIN
+            IO.select [@server.backend]
+            retry
         end
       end
     end

@@ -1,5 +1,3 @@
-require 'digest'
-
 module Yars
   class Server
     module Workers
@@ -13,13 +11,13 @@ module Yars
 
         def spawn
           NUM_WORKERS.times do
-            worker = Thread.start do
+            worker = Thread.new do
               loop do
                 begin
                   client = @server.clients.pop
                   serve client
-                rescue => e
-                  puts e
+                rescue
+                  nil # Errno::EPIPE, etc.
                 ensure
                   client.close
                 end
@@ -57,9 +55,12 @@ module Yars
         end
 
         def ship(response, to:)
-          to.puts response.status
-          to.puts response.headers
-          to.puts response.body
+          to.write_nonblock response.status
+          to.write_nonblock response.headers
+          to.write_nonblock response.body
+        rescue IO::WaitReadable, Errno::EAGAIN
+          IO.select [@to]
+          retry
         end
       end
     end

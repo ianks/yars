@@ -1,5 +1,4 @@
 require 'http/parser'
-require 'ostruct'
 
 module Yars
   # Null object in case of malformed response
@@ -11,14 +10,14 @@ module Yars
   class Request
     attr_accessor :parsed
 
-    def initialize(from:, raw: '')
+    def initialize(from:)
       @from = from
       @parsed = read_buffer
       @raw = parsed
     end
 
     def etag
-      Digest::MD5.new { @raw }.to_s
+      @raw.hash
     end
 
     private
@@ -26,8 +25,9 @@ module Yars
     def read_buffer
       @from.read_nonblock 1024
 
-      rescue IO::WaitReadable
-        IO.select [@from], nil, nil, 0.01
+      rescue IO::WaitReadable, Errno::EAGAIN
+        IO.select [@from], nil, nil, 1
+        retry
     end
   end
 end
