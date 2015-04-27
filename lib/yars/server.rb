@@ -30,15 +30,15 @@ module Yars
     end
 
     def start
-      puts "-> Booting yars on http://#{@host}:#{@port}"
-      puts "-> Concurrency is set to #{@concurrency}"
-      puts '-> Press Ctrl-c to stop'
+      say "-> Booting yars on http://#{@host}:#{@port}"
+      say "-> Concurrency is set to #{@concurrency}"
+      say '-> Press Ctrl-c to stop'
 
       boot_tcp_server
     rescue SystemExit, Interrupt
-      puts "\nSIGINT caught, exiting safely..."
+      say "\nSIGINT caught, exiting safely..."
       @logger.close
-      @pools.each(&:kill)
+      (Thread.list - [Thread.current]).each(&:exit)
       exit!
     end
 
@@ -65,6 +65,10 @@ module Yars
       FileUtils.mkdir_p 'log'
       file = File.open 'log/yars.log', File::WRONLY | File::APPEND | File::CREAT
       @logger = Logger.new file
+    end
+
+    def say(*args)
+      puts(*args) unless @options[:quiet]
     end
   end
 end
