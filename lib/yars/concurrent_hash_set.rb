@@ -4,19 +4,21 @@ require 'concurrent'
 module Yars
   # BaseHashSet
   class ConcurrentHashSet
-    def initialize(capacity)
-      @capacity, @size = capacity, 0
-      @table = Array.new(capacity).map { [] }
+    def initialize(capacity = 20)
       @locks = Array.new(capacity).map { Mutex.new }
       @owner = Concurrent::AtomicMarkableReference.new
+      @size = 0
+      @table = Array.new(capacity).map { [] }
     end
 
     def [](key)
       acquire key
 
-      bucket = index_of key, inside_of: @table
+      bucket = index_of key, length: @table.length
 
-      return @table[bucket].find { |k, _v| k == key }[1]
+      val = @table[bucket].find { |k, _v| k == key }
+
+      return val.is_a?(Array) ? val[1] : nil
     ensure
       release key
     end
@@ -25,7 +27,7 @@ module Yars
       acquire key
 
       begin
-        bucket = index_of key, inside_of: @table
+        bucket = index_of key, length: @table.length
 
         unless @table[bucket].include? [key, value]
           result = @table[bucket] << [key, value]
@@ -54,7 +56,7 @@ module Yars
         end while mark && who != me
 
         old_locks = @locks
-        old_lock = old_locks[index_of x, inside_of: old_locks]
+        old_lock = old_locks[index_of x, length: old_locks.length]
         old_lock.lock
         who, mark = @owner.get
 
@@ -65,11 +67,11 @@ module Yars
     end
 
     def release(x)
-      @locks[index_of x, inside_of: @locks].unlock
+      @locks[index_of x, length: @locks.length].unlock
     end
 
     def policy
-      (@size / @table.length) > 4
+      (@size / @table.length) > 8
     end
 
     def resize
@@ -79,17 +81,13 @@ module Yars
         return if @table.length != new_capacity
 
         quiesce
+
         old_table = @table
 
         @table = Array.new(new_capacity).map { [] }
         @locks = Array.new(new_capacity).map { Mutex.new }
 
-        # Add values to new @table
-        old_table.each do |bucket|
-          bucket.each do |item|
-            @table[index_of item, inside_of: bucket] << item
-          end
-        end
+        rehash old_table
 
         return @table
       end
@@ -101,8 +99,20 @@ module Yars
       @locks.each { |lock| loop while lock.locked? }
     end
 
-    def index_of(x, inside_of:)
-      (x.hash % inside_of.length).abs
+    def index_of(x, length:)
+      (x.hash % length).abs
+    end
+
+    def rehash(old_table)
+      new_capacity = @table.length
+
+      old_table.each do |bucket|
+        bucket.each do |item|
+          @table[index_of item, length: new_capacity] << item
+        end
+      end
     end
   end
+
+  class AtomicCache < ConcurrentHashSet; end
 end
