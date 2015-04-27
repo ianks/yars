@@ -9,7 +9,7 @@ module Rack
       def self.run(app, options = {}, &block)
         app = Rack::Builder.new(&block).to_app if block_given?
         host = options.delete(:Host) || 'localhost'
-        port = options.delete(:Port) || 8000
+        port = options.delete(:Port) || 8080
         server = ::Yars::Server.new(
           host: host, port: port, app: app, options: options
         )
@@ -23,7 +23,7 @@ module Rack
         {
           'Host=HOST'       => 'Hostname to listen on (default: locahost)',
           'Port=PORT'       => 'Port to listen on (default: 8080)',
-          'Concurrency=NUM' => 'Number of threads to run (default: 16)'
+          'concurrency=NUM' => 'Number of threads to run (default: 16)'
         }
       end
     end

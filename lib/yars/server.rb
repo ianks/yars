@@ -9,11 +9,13 @@ require 'logger'
 module Yars
   # Server class which listens for requests
   class Server
-    attr_accessor :app, :backend, :clients, :pools, :logger
+    attr_accessor :app, :backend, :clients, :pools, :logger, :concurrency
 
-    def initialize(app:, port: 8000, host: 'localhost', options: {})
+    def initialize(app:, port: 8080, host:, options: {})
       @app = app
       @clients = RequestQueue.new
+      @concurrency = options[:concurrency] || 16
+      @caching = options[:caching] || false
       @host = host
       @mutex = Mutex.new
       @options = options
@@ -23,18 +25,25 @@ module Yars
       setup_logger
     end
 
-    def self.start(app:, port: 8000, host: 'localhost', options: {})
+    def self.start(app:, port: 8080, host: 'localhost', options: {})
       new(app: app, port: port, host: host, options: options).start
     end
 
     def start
-      puts "-> Booting yars on #{@host}:#{@port}"
+      puts "-> Booting yars on http://#{@host}:#{@port}"
+      puts "-> Concurrency is set to #{@concurrency}"
       puts '-> Press Ctrl-c to stop'
+
       boot_tcp_server
     rescue SystemExit, Interrupt
       puts "\nSIGINT caught, exiting safely..."
       @pools.each(&:kill)
+
       exit!
+    end
+
+    def caching?
+      @caching
     end
 
     private

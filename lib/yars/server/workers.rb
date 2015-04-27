@@ -20,6 +20,16 @@ module Yars
           @workers.each(&:kill)
           @manager.kill
         end
+
+        def concurrency
+          majority = (@server.concurrency * 0.66).to_i
+          minority =  @server.concurrency - majority
+
+          case self
+          when Backend  then majority
+          when Frontend then minority
+          end
+        end
       end
     end
   end

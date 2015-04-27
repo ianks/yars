@@ -3,14 +3,12 @@ module Yars
     module Workers
       # Backend workers which render responses to the client
       class Backend < Worker
-        NUM_WORKERS = 4
-
         def post_initialize
           @lookup_cache = ::Yars::AtomicCache.new
         end
 
         def spawn
-          NUM_WORKERS.times do
+          concurrency.times do
             worker = Thread.new do
               loop do
                 begin
@@ -35,16 +33,16 @@ module Yars
           etag = request.etag
 
           # If the response is cached, ship that
-          if @lookup_cache[etag]
+          if @server.caching? && @lookup_cache[etag]
             response = @lookup_cache[etag]
           else
-            response = response_from_application env: {}
+            response = response_from_application env: request.parsed
           end
 
           ship response, to: client
 
           # Cache the response
-          @lookup_cache[etag] = response
+          @lookup_cache[etag] = response if @server.caching?
         end
 
         private

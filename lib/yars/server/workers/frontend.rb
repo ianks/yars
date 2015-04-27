@@ -3,10 +3,8 @@ module Yars
     module Workers
       # Workers which respond to initial HTTP requests.
       class Frontend < Worker
-        NUM_WORKERS = 8
-
         def spawn
-          NUM_WORKERS.times { @workers << start_worker }
+          concurrency.times { @workers << start_worker }
 
           @workers.each(&:join)
         rescue => err
