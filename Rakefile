@@ -27,26 +27,9 @@ def boot_server(concurrency)
   require 'bundler/setup'
   require 'yars'
 
-  body = <<-html
-  <html>
-    <h1>Hello world!</h1>
-    <p>It is currently #{Time.now}</p>
-  </html>
-  html
-
-  app = lambda do |env|
-    headers = { 'Content-Type' => 'text/html' }
-
-    body = <<-html
-      <html>
-        <h1>Hello world!</h1>
-        <h3>It is currently #{Time.now}</h3>
-        <p>#{env.gsub "\r\n", '<br>' }</p>
-      </html>
-    html
-
-    Rack::Response.new(body, 200, headers).finish
-  end
+  body = "<html><body><h1></h1></body></html>\n"
+  headers = { 'Content-Type' => 'text/html' }
+  app = ->(_env) { Rack::Response.new(body, 200, headers).finish }
 
   Rack::Handler::Yars.run(
     app,
