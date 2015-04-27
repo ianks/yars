@@ -73,26 +73,32 @@ module Yars
     end
 
     def resize
-      old_capacity = @table.length
-      @locks.each(&:lock)
+      new_capacity = 2 * @table.length
 
-      # Race condition
-      return if old_capacity != @table.length
+      if @owner.compare_and_set nil, Thread.current, false, true
+        return if @table.length != new_capacity
 
-      new_capacity = 2 * old_capacity
-      old_table = @table
-      @table = Array.new(new_capacity).map { [] }
+        quiesce
+        old_table = @table
 
-      old_table.each do |bucket|
-        bucket.each do |item|
-          @table[index_of item, inside_of: bucket] << item
+        @table = Array.new(new_capacity).map { [] }
+        @locks = Array.new(new_capacity).map { Mutex.new }
+
+        # Add values to new @table
+        old_table.each do |bucket|
+          bucket.each do |item|
+            @table[index_of item, inside_of: bucket] << item
+          end
         end
+
+        return @table
       end
-
-      return new_capacity
-
     ensure
-      @locks.each(&:unlock)
+      @owner.set nil, false
+    end
+
+    def quiesce
+      @locks.each { |lock| loop while lock.locked? }
     end
 
     def index_of(x, inside_of:)
