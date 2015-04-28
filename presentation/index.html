@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+
+    <head>
+        <meta charset="utf-8">
+
+        <title>YARS</title>
+
+        <meta name="description" content="YARS">
+        <meta name="author" content="Ian Ker-Seymer">
+
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
+        <link rel="stylesheet" href="css/reveal.css">
+        <link rel="stylesheet" href="./css/theme/league.css" id="theme">
+
+        <!-- Code syntax highlighting -->
+        <link rel="stylesheet" href="./lib/css/zenburn.css">
+
+        <!-- Printing and PDF exports -->
+        <script>
+            var link = document.createElement( 'link' );
+            link.rel = 'stylesheet';
+            link.type = 'text/css';
+            link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+            document.getElementsByTagName( 'head' )[0].appendChild( link );
+        </script>
+
+        <!--[if lt IE 9]>
+        <script src="lib/js/html5shiv.js"></script>
+        <![endif]-->
+    </head>
+
+    <body>
+        <div class="reveal">
+            <div class="slides">
+                <section>
+                    <h1>Concurrent Programming Presentation</h1>
+                    <h3>It's OK</h3>
+                    <h4>Take a deep breath</h3>
+                    <h5>NAMASTé, FOOL.</h3>
+                    <p>
+                        <small>Created by <a href="http://ianks.com">Ian Ker-Seymer</a> / <a href="https://twitter.com/_ianks">@ianks</a></small>
+                    </p>
+                </section>
+
+                <section>
+                    <section>
+                        <h2>P != NP</h2>
+                        <p>Maybe we can figure this out faster if we have more threads</p>
+                        <br>
+                        <a href="#" class="navigate-down">
+                            <img width="600px" data-src="http://www.boingboing.net/filesroot/mathproof.jpg" alt="Down arrow">
+                        </a>
+                    </section>
+                    <section>
+                        <h2>Methodology</h2>
+                        <a href="#" class="navigate-down">
+                            <img width="600px" data-src="./images/p_vs_np.png" alt="Down arrow">
+                        </a>
+                    </section>
+                    <section>
+                        <h2>Results</h2>
+                        <img width="300px" data-src="./images/p_vs_np_proof.png" alt="Proof">
+                    </section>
+                    <section>
+                      <img data-src="http://media.giphy.com/media/1tr9OIWnzEB7G/giphy.gif"></img>
+                    </section>
+                </section>
+
+                <section>
+                        <h2>After solving that, I figured I would move onto a <i>harder</i> problem.</h2>
+                </section>
+
+                <section>
+                    <h2>Building a web server!</h2>
+                </section>
+
+                <section>
+                  <h2>YARS: A multi-threaded, non-blocking web server and cache</h2>
+                  <a href="https://github.com/ianks/yars" target="_blank">github.com/ianks/yars</a>
+                </section>
+
+                <section>
+                  <h2>Paralellization challenges</h2>
+                      <p class="fragment">
+                          - We need to be able to accept an arbitrary number of
+                          clients.
+                      </p>
+
+                      </br>
+
+                      <p class="fragment">
+                         - We want to make sure that reads and write from sockets
+                         do not block other threads from making progress.
+                      </p>
+
+                      </br>
+
+                      <p class="fragment">
+                        - We need to have a threadsafe cache which threads will
+                        access to share see if a response has already been
+                        calculated.
+                      </p>
+                </section>
+
+                <section>
+                    <h2>Request Queue</h2>
+                    <p>
+                       We need to be able to accept and keep track of clients
+                       so that we can serve them later. Order matters, since we
+                       do not want to make some clients wait forever while
+                       others are served (fairness).
+                    </p>
+                </section>
+
+                <section>
+                    <h2>Frontend Workers</h2>
+
+                    <p>
+                        We have frontend (producer) threads which accept
+                        clients and put them on the queue.
+                    </p>
+
+                    <pre><code class="ruby">
+class Frontend < Worker
+  def spawn
+    concurrency.times { @workers << start_worker }
+
+    @workers.each(&:join)
+  rescue => err
+    @server.logger.warn err.to_s
+  end
+
+  private
+
+  def start_worker
+    Thread.new { enter_work_loop }.tap do |t|
+      t.abort_on_exception = true
+    end
+  end
+
+  def enter_work_loop
+    loop { accept_clients }
+  end
+
+  def accept_clients
+    @server.clients << @server.backend.accept_nonblock
+
+    rescue IO::WaitReadable, Errno::EAGAIN
+      IO.select [@server.backend]
+      retry
+    rescue => err
+      @server.logger.warn err.to_s
+  end
+end
+                    </code></pre>
+                </section>
+
+
+                <section>
+                    <h2>Backend Workers</h2>
+                        <ol>
+                            <li class="fragment">Take clients from the queue</li>
+                            </br>
+                            <li class="fragment">Read from their socket </li>
+                            </br>
+                            <li class="fragment">
+                                Check to see if response is cached, if not,
+                                send the response back to the application and
+                                middleware for further processing
+                            </li>
+                            </br>
+                            <li class="fragment">
+                                Hash the response and store it in a lookup
+                                cache
+                            </li>
+                        </ol>
+                    </p>
+                </section>
+
+                <section>
+                    <pre>
+                      <code class="ruby">
+class Backend < Worker
+  def post_initialize
+    @lookup_cache = ::Yars::AtomicCache.new
+  end
+
+  def spawn
+    concurrency.times do
+      worker = Thread.new do
+        loop do
+          begin
+            client = @server.clients.pop
+            serve client
+          rescue => err
+            @server.logger.warn err.to_s
+          ensure
+            client.close
+          end
+        end
+      end
+
+      @workers << worker.tap do |w|
+        w.abort_on_exception = true
+      end
+    end
+  end
+
+  def serve(client)
+    request = Request.new from: client
+    etag = request.etag
+
+    # If the response is cached, ship that
+    if @server.caching? && @lookup_cache[etag]
+      response = @lookup_cache[etag]
+    else
+      response = response_from_application env: request.parsed
+    end
+
+    ship response, to: client
+
+    # Cache the response
+    @lookup_cache[etag] = response if @server.caching?
+  end
+
+  private
+
+  def response_from_application(env:)
+    status, headers, body = @server.app.call env
+    Response.new status, headers, body
+  end
+
+  def ship(response, to:)
+    to.write_nonblock response.status
+    to.write_nonblock response.headers
+    to.write_nonblock response.body
+  rescue IO::WaitReadable, Errno::EAGAIN
+    IO.select [@to]
+    retry
+  end
+end
+                      </code>
+                    </pre>
+                </section>
+
+                <section>
+                    <h2>A case for an Unbounded Signaling Queue</h2>
+
+                    <p class="fragment">
+                        On one hand, we want to reduce the locking needed to
+                        access the Queue to increase performance.
+                    </p>
+
+                    </br>
+
+                    <p class="fragment">
+                        On the other hand, we like the behavior of having
+                        threads sleep while they wait on a condition variable.
+                        This allows for the OS to schedule other tasks while
+                        there is little activity on the server.
+                    </p>
+                </section>
+
+                <section>
+                    <h2>Unbounded Signaling Queue: A Hybrid Approach</h2>
+
+                    <p class="fragment">
+                        Since we really only need to signal backend workers
+                        when the state changes from empty to nonempty, we only
+                        use locks in the case that either the queue is empty,
+                        or the queue was empty, and no longer is.
+                    </p>
+
+                    </br>
+
+                    <p class="fragment">
+                        In all other cases, we use atomic CAS operations to
+                        alter the list. In this case, we do not need locks at
+                        all.
+                    </p>
+                </section>
+
+                <section>
+                    <h2>Code for Push and Pop</h2>
+                    <pre>
+                        <code class="ruby">
+
+def <<(data)
+  node = Node.new data: data
+
+  loop do
+    last = @tail.get
+    succ = begin
+             last.succ.get
+           rescue
+             nil
+           end
+
+    if last == @tail.get
+      if succ.nil?
+        if last.succ.compare_and_set succ, node
+          @tail.compare_and_set last, node
+          @mutex.synchronize { @not_empty.broadcast }
+
+          return node.data
+        end
+      else
+        @tail.compare_and_set last, succ
+      end
+    end
+  end
+end
+
+def pop
+  loop do
+    first = @head.get
+    last = @tail.get
+    succ = @head.get.succ.get
+
+    # Await until there is work to be done
+    if succ.nil?
+      @mutex.synchronize do
+        @not_empty.wait @mutex
+        next
+      end
+    end
+
+    if first == @head.get
+      if first == last
+        @tail.compare_and_set last, succ
+      else
+        return succ.data if @head.compare_and_set first, succ
+      end
+    end
+  end
+end
+                        </code>
+                    </pre>
+                </section>
+            </div>
+        </div>
+
+        <script src="lib/js/head.min.js"></script>
+        <script src="js/reveal.js"></script>
+
+        <script>
+
+            // Full list of configuration options available at:
+            // https://github.com/hakimel/reveal.js#configuration
+            Reveal.initialize({
+                controls: true,
+                progress: true,
+                history: true,
+                center: true,
+
+                transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+                // Optional reveal.js plugins
+                dependencies: [
+                    { src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+                    { src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+                    { src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+                    { src: 'plugin/highlight/highlight.js', async: true, condition: function() { return !!document.querySelector( 'pre code' ); }, callback: function() { hljs.initHighlightingOnLoad(); } },
+                    { src: 'plugin/zoom-js/zoom.js', async: true },
+                    { src: 'plugin/notes/notes.js', async: true }
+                ]
+            });
+
+        </script>
+
+    </body>
+</html>
