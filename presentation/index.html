@@ -39,9 +39,6 @@
             <div class="slides">
                 <section>
                     <h1>Concurrent Programming Presentation</h1>
-                    <h3>It's OK</h3>
-                    <h4>Take a deep breath</h3>
-                    <h5>NAMASTé, FOOL.</h3>
                     <p>
                         <small>Created by <a href="http://ianks.com">Ian Ker-Seymer</a> / <a href="https://twitter.com/_ianks">@ianks</a></small>
                     </p>
@@ -342,6 +339,158 @@ end
                         </code>
                     </pre>
                 </section>
+
+                <section>
+                  <h2>A thread-safe cache</h2>
+                  <ul>
+                    <li>
+                      Fine grain locking with resizeable locks array
+                    </li>
+                    <li>
+                      This allows for the cache to scale nicely because as the
+                      cache grows in size, we reduce the contentions on locks
+                      for each bin as the probability of an two items colliding
+                      in the locks array decreases.
+                    </li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h2>A thread-safe cache</h2>
+                  <ul>
+                    <li>
+                      Fine grain locking with resizeable locks array
+                    </li>
+                    <li>
+                      This allows for the cache to scale nicely because as the
+                      cache grows in size, we reduce the contentions on locks
+                      for each bin as the probability of an two items colliding
+                      in the locks array decreases.
+                    </li>
+                  </ul>
+                </section>
+
+                <section>
+                  <pre>
+                  <code class="ruby">
+def acquire(x)
+  me = Thread.current
+
+  loop do
+    who, mark = @owner.get
+
+    loop do
+      who, mark = @owner.get
+    end while mark && who != me
+
+    old_locks = @locks
+    old_lock = old_locks[index_of x, length: old_locks.length]
+    old_lock.lock
+    who, mark = @owner.get
+
+    return if (!mark || who == me) && @locks == old_locks
+
+    old_lock.unlock
+  end
+end
+
+                  </code>
+                  </pre>
+                </section>
+
+                <section>
+                  <section>
+
+                    <h2>Issues I faced when implementing the server</h2>
+                    <ul>
+                      <li class="fragment">Lack of Concurrency Primitives in Ruby</li>
+                      <li class="fragment">Global Interpreter Lock</li>
+                      <li class="fragment">Socket programming...</li>
+                    </ul>
+                  </section>
+
+                  <section>
+                    <h2>Lack of Concurrency</h2>
+                    <p>
+                      No AtomicMarkableReference, so I ended up
+                      sending in a patch to the concurrent-ruby
+                      library.
+
+                      Not having primitives is challenging as it
+                      makes implementing concurrent data structures
+                      impossible without some form of locking.
+                    </p>
+                    <a href="https://github.com/ruby-concurrency/concurrent-ruby/pull/281">github.com/ruby-concurrency/concurrent-ruby/pull/281</a>
+                  </section>
+
+                  <section>
+                    <h2>Global Interpreter Lock</h2>
+                    <p>
+                      Ruby, like other dynamic languages, has a GIL which only
+                      allows one line of code to be executed by the Interpreter
+                      at once.
+                    </p>
+
+                    <p class="fragment">
+                      Huge source of sequential bottlenecking. In my eyes, you
+                      essentially get all of the pains of conccurent
+                      programming without the benefits. Sigh.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h2>Socket Programming...</h2>
+                    <p>
+                      Word of wisdom: never for the "Connection: close" HTTP
+                      1.1 header...
+                    </p>
+                  </section>
+                </section>
+
+                <section>
+                  <section>
+                    <h2>Results</h2>
+                    <p>Unfortunately, not as signficant as I was hoping.</p>
+                    <p class="fragment">Why? Non-blocking IO and GIL</p>
+                  </section>
+
+                  <section>
+                    <h2>Non-blocking IO</h2>
+                    <p>
+                      Since we never had to wait on the Kernel to read the
+                      buffers from the sockets, the threads were never really
+                      IO bound.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h2>GIL</h2>
+                    <p>
+                      For CPU bound tasks, we are unable to make use of multiple
+                      cores as the interpreter is a sequential bottleneck.
+                    </p>
+                    <img class="fragment" data-src="http://media.giphy.com/media/VPhQn6nwtQqvC/giphy.gif" alt="sad"></img>
+                  </section>
+                </section>
+
+                <section>
+                  <section>
+                    <h2>Despite the trials and tribulations</h2>
+                    <p>A lot was learned</p>
+                    <ul>
+                      <li class="fragment">Use non-blocking IO from the start</li>
+                      <li class="fragment">Never underestimate the power of concurrency primitives</li>
+                      <li class="fragment">
+                        Always have tst coverage to make sure your application works under
+                        multi-threaded conditions
+                      </li>
+                    </ul>
+                  </section>
+                </section>
+
+                <section>
+                  <h2>Questions</h2>
+                </section>
             </div>
         </div>
 
@@ -358,7 +507,7 @@ end
                 history: true,
                 center: true,
 
-                transition: 'slide', // none/fade/slide/convex/concave/zoom
+                transition: 'convex', // none/fade/slide/convex/concave/zoom
 
                 // Optional reveal.js plugins
                 dependencies: [
